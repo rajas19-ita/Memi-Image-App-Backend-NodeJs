@@ -1,0 +1,1 @@
+ALTER TABLE "image" ALTER COLUMN "upload_at" DROP DEFAULT;
