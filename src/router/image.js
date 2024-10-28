@@ -39,7 +39,7 @@ const upload = multer({
 });
 
 imageRouter.post(
-    "/upload",
+    "/add",
     auth,
     upload.single("image"),
     async (req, res) => {
@@ -98,7 +98,6 @@ imageRouter.post(
                 },
             });
         } catch (error) {
-            console.log(error);
             res.status(500).send({ message: "An error occurred." });
         }
     },
@@ -137,6 +136,16 @@ imageRouter.get("/", auth, async (req, res) => {
             .select({ count: count() })
             .from(Image)
             .where(eq(Image.userId, req.user.id));
+
+        if (totalImages === 0) {
+            return res.status(200).send({
+                currentPage: 1,
+                totalPages: 0,
+                pageSize,
+                totalImages: 0,
+                images: [],
+            });
+        }
 
         const totalPages = Math.ceil(totalImages / pageSize);
 
