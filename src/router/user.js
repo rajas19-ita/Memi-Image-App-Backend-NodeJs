@@ -6,7 +6,6 @@ import { User } from "../db/schema/user.js";
 import { eq } from "drizzle-orm";
 import pg from "pg";
 import jwt from "jsonwebtoken";
-import auth from "../middleware/auth.js";
 const { DatabaseError } = pg;
 
 const userRouter = express();
@@ -19,8 +18,8 @@ const generateAuthToken = (user) => {
 };
 
 const userSchema = Joi.object({
-    username: Joi.string().alphanum().min(3).max(30).required(),
-    password: Joi.string().min(8).required(),
+    username: Joi.string().trim().alphanum().min(3).max(30).required(),
+    password: Joi.string().trim().min(8).required(),
 });
 
 userRouter.post("/signup", async (req, res) => {
@@ -55,7 +54,6 @@ userRouter.post("/signup", async (req, res) => {
                     .send({ message: "username already exists." });
             }
         }
-        console.log(error);
         res.status(500).send({ message: "An error occurred" });
     }
 });
@@ -92,13 +90,8 @@ userRouter.post("/login", async (req, res) => {
             token,
         });
     } catch (error) {
-        console.log(error);
         res.status(500).send({ message: "An error occurred" });
     }
-});
-
-userRouter.get("/", auth, async (req, res) => {
-    res.status(200).send({ message: "Welcome to '/' route" });
 });
 
 export default userRouter;

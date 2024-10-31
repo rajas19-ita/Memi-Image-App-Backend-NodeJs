@@ -33,7 +33,6 @@ const auth = async (req, res, next) => {
             return res.status(401).send({ message: "Invalid Token" });
         }
 
-        console.log(error);
         res.status(500).send({ message: "An error occurred" });
     }
 };

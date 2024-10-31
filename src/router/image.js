@@ -11,8 +11,9 @@ import { MulterError } from "multer";
 import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
 import { Image } from "../db/schema/image.js";
+import { Tag, ImageTags } from "../db/schema/tag.js";
 import { db } from "../db/index.js";
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc, eq, inArray } from "drizzle-orm";
 import Joi from "joi";
 
 const imageRouter = express.Router();
@@ -38,6 +39,11 @@ const upload = multer({
     },
 });
 
+const imageSchema = Joi.object({
+    title: Joi.string().trim().min(3).max(60).required(),
+    tags: Joi.array().items(Joi.number()).min(1).max(5).required(),
+});
+
 imageRouter.post(
     "/add",
     auth,
@@ -49,6 +55,37 @@ imageRouter.post(
                     message:
                         "Please provide an image file for upload (jpg or png).",
                 });
+            }
+            let tags;
+            try {
+                tags = req.body.tags
+                    ? JSON.parse(req.body.tags)
+                    : req.body.tags;
+            } catch (parseError) {
+                return res
+                    .status(400)
+                    .send({ message: "Invalid JSON format for tags" });
+            }
+
+            const { error, value: imageData } = imageSchema.validate({
+                title: req.body.title,
+                tags,
+            });
+
+            if (error) {
+                return res.status(400).send({
+                    message: error.details[0].message,
+                    path: error.details[0].path,
+                });
+            }
+
+            const selectedTags = await db
+                .select()
+                .from(Tag)
+                .where(inArray(Tag.id, tags));
+
+            if (selectedTags.length === 0) {
+                return res.status(400).send({ message: "Invalid tag ID's" });
             }
 
             const imgKey = uuidv4() + ".jpg";
@@ -73,6 +110,7 @@ imageRouter.post(
             const [image] = await db
                 .insert(Image)
                 .values({
+                    title: imageData.title,
                     key: imgKey,
                     mimeType: "image/jpeg",
                     width: metaData.width,
@@ -91,10 +129,18 @@ imageRouter.post(
                 { expiresIn: 900 }
             );
 
+            await db.insert(ImageTags).values(
+                selectedTags.map((tag) => ({
+                    imageId: image.id,
+                    tagId: tag.id,
+                }))
+            );
+
             res.status(201).send({
                 image: {
                     ...image,
                     url,
+                    tags: [...selectedTags],
                 },
             });
         } catch (error) {

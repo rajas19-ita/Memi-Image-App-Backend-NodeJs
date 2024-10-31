@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1728715946016,
-      "tag": "0000_special_power_pack",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1728990246649,
-      "tag": "0001_parched_hammerhead",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1729059226269,
-      "tag": "0002_eminent_bullseye",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1729061728206,
-      "tag": "0003_special_the_captain",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1729062779396,
-      "tag": "0004_gray_korg",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1729062924103,
-      "tag": "0005_lowly_cerise",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1729063703324,
-      "tag": "0006_nice_titania",
+      "when": 1730197302855,
+      "tag": "0000_nifty_weapon_omega",
       "breakpoints": true
     }
   ]

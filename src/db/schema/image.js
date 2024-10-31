@@ -3,6 +3,7 @@ import { User } from "./user.js";
 
 export const Image = pgTable("image", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: varchar({ length: 60 }).notNull(),
     key: varchar({ length: 255 }).notNull().unique(),
     mimeType: varchar("mime_type", { length: 255 }).notNull(),
     width: integer().notNull(),
