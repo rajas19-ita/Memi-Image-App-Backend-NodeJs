@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Image } from "../db/schema/image.js";
 import { Tag, ImageTags } from "../db/schema/tag.js";
 import { db } from "../db/index.js";
-import { count, desc, eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import Joi from "joi";
 
 const imageRouter = express.Router();
@@ -164,10 +164,75 @@ imageRouter.post(
     }
 );
 
+const queryBuilder = ({
+    userId,
+    tagId,
+    title,
+    sortBy,
+    order,
+    page,
+    pageSize,
+}) => {
+    const countQuery = sql`select count(*) from image`;
+    const imageQuery = sql`
+        select image.id as id, 
+               image.title as title, 
+               image.key as key,
+               image.mime_type as "mimeType", 
+               image.width as width, 
+               image.height as height,
+               image.file_size as "fileSize", 
+               image.user_id as "userId", 
+               image.upload_at as "uploadAt", 
+               array_agg(json_build_object('id', tag.id, 'tagName', ${Tag.tagName})) as "allTags"
+        from image 
+        inner join image_tags on image.id = image_tags.image_id
+        inner join tag on image_tags.tag_id = tag.id 
+        where image.user_id = ${userId}`;
+
+    if (tagId) {
+        countQuery.append(sql` inner join image_tags on image.id = image_tags.image_id
+             where image.user_id = ${userId} 
+             and image_tags.tag_id = ${tagId}`);
+    } else {
+        countQuery.append(sql` where image.user_id = ${userId}`);
+    }
+
+    if (title) {
+        const likeTitle = `%${title}%`;
+
+        countQuery.append(sql` and image.title ilike ${likeTitle}`);
+        imageQuery.append(sql` and image.title ilike ${likeTitle}`);
+    }
+
+    imageQuery.append(sql` group by image.id`);
+
+    if (tagId) {
+        imageQuery.append(
+            sql` having array_agg(tag.id) @> array[${tagId}]::integer[]`
+        );
+    }
+
+    const orderByField = sortBy === "title" ? "image.title" : "image.upload_at";
+    const orderDirection = order === "asc" ? "asc" : "desc";
+
+    imageQuery.append(
+        sql` order by ${sql.raw(orderByField)} ${sql.raw(orderDirection)}`
+    );
+
+    imageQuery.append(sql` limit ${pageSize} offset ${(page - 1) * pageSize}`);
+
+    return { imageQuery, countQuery };
+};
+
 const paginationSchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     pageSize: Joi.number().integer().min(1).default(8),
-});
+    title: Joi.string().trim().lowercase().default(""),
+    sortBy: Joi.string().valid("date", "title"),
+    order: Joi.string().valid("asc", "desc"),
+    tagId: Joi.number(),
+}).with("sortBy", "order");
 
 imageRouter.get("/", auth, async (req, res) => {
     try {
@@ -176,12 +241,30 @@ imageRouter.get("/", auth, async (req, res) => {
         if (error) {
             return res.status(400).send({ message: error.details[0].message });
         }
-        const { page, pageSize } = value;
 
-        const [{ count: totalImages }] = await db
-            .select({ count: count() })
-            .from(Image)
-            .where(eq(Image.userId, req.user.id));
+        const { page, pageSize, title, sortBy, order, tagId } = value;
+
+        if (tagId) {
+            const [tag] = await db.select().from(Tag).where(eq(Tag.id, tagId));
+            if (!tag)
+                return res.status(400).send({ message: "Invalid tag id" });
+        }
+
+        const { imageQuery, countQuery } = queryBuilder({
+            userId: req.user.id,
+            page,
+            pageSize,
+            title,
+            sortBy,
+            order,
+            tagId,
+        });
+
+        let {
+            rows: [{ count: totalImages }],
+        } = await db.execute(countQuery);
+
+        totalImages = Number.parseInt(totalImages);
 
         if (totalImages === 0) {
             return res.status(200).send({
@@ -201,13 +284,7 @@ imageRouter.get("/", auth, async (req, res) => {
                 .send({ message: "Page number exceeds total pages." });
         }
 
-        const images = await db
-            .select()
-            .from(Image)
-            .where(eq(Image.userId, req.user.id))
-            .orderBy(desc(Image.uploadAt))
-            .limit(pageSize)
-            .offset((page - 1) * pageSize);
+        const { rows: images } = await db.execute(imageQuery);
 
         const signedUrlPromises = images.map(async (img) => {
             const url = await getSignedUrl(

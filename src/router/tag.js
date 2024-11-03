@@ -1,10 +1,11 @@
 import express from "express";
 import auth from "../middleware/auth.js";
 import Joi from "joi";
-import { Tag } from "../db/schema/tag.js";
+import { Image } from "../db/schema/image.js";
+import { ImageTags, Tag } from "../db/schema/tag.js";
 import { db } from "../db/index.js";
 import pg from "pg";
-import { ilike } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 const { DatabaseError } = pg;
 
 export const tagRouter = express.Router();
@@ -70,6 +71,24 @@ tagRouter.get("/", auth, async (req, res) => {
             .offset((page - 1) * pageSize);
 
         return res.status(200).send(tags);
+    } catch (error) {
+        res.status(500).send({ message: "An error occurred" });
+    }
+});
+
+tagRouter.get("/user", auth, async (req, res) => {
+    try {
+        const tags = await db
+            .selectDistinct({
+                id: Tag.id,
+                tagName: Tag.tagName,
+            })
+            .from(Image)
+            .innerJoin(ImageTags, eq(Image.id, ImageTags.imageId))
+            .innerJoin(Tag, eq(ImageTags.tagId, Tag.id))
+            .where(eq(Image.userId, req.user.id));
+
+        res.status(200).send(tags);
     } catch (error) {
         res.status(500).send({ message: "An error occurred" });
     }
