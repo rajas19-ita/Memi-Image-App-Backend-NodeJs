@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import bodyParser from "body-parser";
 import imageRouter from "./router/image.js";
@@ -15,6 +16,8 @@ app.use("/users", userRouter);
 app.use("/images", imageRouter);
 app.use("/tags", tagRouter);
 
-app.listen(4000, () => {
-    console.log("Server is running on port 4000...");
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}...`);
 });
